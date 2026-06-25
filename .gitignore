@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env*
+!.env.example
+.evn
+.DS_Store
+.idea/
+config/om_names.json
+downloads/
+data/
+dist/

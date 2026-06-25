@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EDC vyhodnocení sdílení</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>EDC vyhodnocení sdílení</h1>
+        <p id="group-label" class="group-label">Skupina sdílení: načítám...</p>
+        <p id="period">Nahrávám data...</p>
+      </div>
+      <div class="top-actions">
+        <div class="month-switcher" aria-label="Přepnout měsíc">
+          <button id="month-prev" type="button" aria-label="Předchozí měsíc">&lt;</button>
+          <strong id="month-label">Načítám...</strong>
+          <button id="month-next" type="button" aria-label="Další měsíc">&gt;</button>
+        </div>
+        <button id="sync-open" type="button">Stáhnout data</button>
+      </div>
+    </header>
+
+    <nav id="group-switcher" class="group-switcher" aria-label="Skupiny sdílení"></nav>
+
+    <section class="metrics" id="metrics"></section>
+
+    <section class="grid">
+      <article class="panel wide">
+        <div class="panel-head">
+          <h2>Aktuální poměry sdílení</h2>
+          <div class="panel-title-meta">
+            <span id="recommendation-group"></span>
+            <span id="strategy"></span>
+          </div>
+        </div>
+        <div id="recommendation" class="recommendation"></div>
+      </article>
+
+      <article class="panel panel-producer">
+        <h2>Výrobní OM</h2>
+        <div id="producers"></div>
+      </article>
+
+      <article class="panel panel-consumer">
+        <h2>Odběrová OM</h2>
+        <div id="consumers"></div>
+      </article>
+    </section>
+
+    <section class="panel analysis-panel">
+      <div class="panel-head">
+        <h2>Analýza a doporučení</h2>
+        <span id="analysis-status"></span>
+      </div>
+      <div id="analysis"></div>
+    </section>
+
+    <section class="panel charts-panel">
+      <div class="panel-head">
+        <h2>Grafy odběrných OM</h2>
+        <span id="charts-status"></span>
+      </div>
+      <div id="consumer-charts"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>15min intervaly</h2>
+        <div class="panel-meta">
+          <div class="interval-switcher" aria-label="Seskupení intervalů">
+            <button type="button" data-interval-mode="quarter">15 min</button>
+            <button type="button" data-interval-mode="hour">Hodiny</button>
+            <button type="button" data-interval-mode="day" class="selected">Dny</button>
+          </div>
+          <span class="legend producer-mark">Výrobní OM</span>
+          <span class="legend consumer-mark">Odběrová OM</span>
+          <span class="legend shared-mark">Sdílení</span>
+          <span id="interval-count"></span>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Čas</th>
+              <th class="producer-cell">Výroba</th>
+              <th class="consumer-cell">Odběr</th>
+              <th class="shared-cell">Sdíleno</th>
+              <th class="producer-cell">Potenciál lepšího sdílení</th>
+              <th class="producer-cell">Prodej síť</th>
+              <th class="consumer-cell">Nákup síť</th>
+            </tr>
+          </thead>
+          <tbody id="intervals"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="name-dialog" class="dialog">
+    <form method="dialog" id="name-form">
+      <div class="dialog-head">
+        <h2>Pojmenovat OM</h2>
+        <button type="button" id="name-close" class="icon-button" aria-label="Zavřít">×</button>
+      </div>
+      <label class="field">
+        <span>EAN</span>
+        <input id="name-ean" readonly>
+      </label>
+      <label class="field">
+        <span>Název</span>
+        <input id="name-value" autocomplete="off" placeholder="Např. Dům, garáž, FVE">
+      </label>
+      <p id="name-error" class="error"></p>
+      <div class="dialog-actions">
+        <button type="button" id="name-remove">Smazat název</button>
+        <button type="submit">Uložit</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="sync-dialog" class="dialog sync-dialog">
+    <form method="dialog" id="sync-form">
+      <div class="dialog-head">
+        <h2>Stáhnout data z EDC</h2>
+        <button type="button" id="sync-close" class="icon-button" aria-label="Zavřít">×</button>
+      </div>
+      <div class="sync-mode" aria-label="Typ období">
+        <button type="button" data-sync-mode="single" class="selected">Měsíc</button>
+        <button type="button" data-sync-mode="range">Rozsah</button>
+      </div>
+      <div class="sync-fields" id="sync-single-fields">
+        <label class="field">
+          <span>Měsíc</span>
+          <input id="sync-month" type="number" min="1" max="12" inputmode="numeric">
+        </label>
+        <label class="field">
+          <span>Rok</span>
+          <input id="sync-year" type="number" min="2024" max="2100" inputmode="numeric">
+        </label>
+      </div>
+      <div class="sync-fields" id="sync-range-fields" hidden>
+        <label class="field">
+          <span>Od měsíce</span>
+          <input id="sync-from-month" type="number" min="1" max="12" inputmode="numeric">
+        </label>
+        <label class="field">
+          <span>Od roku</span>
+          <input id="sync-from-year" type="number" min="2024" max="2100" inputmode="numeric">
+        </label>
+        <label class="field">
+          <span>Do měsíce</span>
+          <input id="sync-to-month" type="number" min="1" max="12" inputmode="numeric">
+        </label>
+        <label class="field">
+          <span>Do roku</span>
+          <input id="sync-to-year" type="number" min="2024" max="2100" inputmode="numeric">
+        </label>
+      </div>
+      <label class="field">
+        <span>Admin token</span>
+        <input id="sync-token" autocomplete="off">
+      </label>
+      <p id="sync-status" class="muted sync-status">Připraveno.</p>
+      <p id="sync-error" class="error"></p>
+      <div class="dialog-actions">
+        <button type="button" id="sync-previous-month">Minulý měsíc</button>
+        <button type="submit">Spustit</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="app.js"></script>
+</body>
+</html>

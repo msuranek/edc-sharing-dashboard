@@ -1,0 +1,11 @@
+.git
+.venv
+.env
+.env.*
+__pycache__
+*.pyc
+downloads
+data
+dist
+.idea
+.DS_Store

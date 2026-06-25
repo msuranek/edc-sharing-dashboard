@@ -1,0 +1,19 @@
+services:
+  edc-portal:
+    build: .
+    container_name: ${EDC_CONTAINER_NAME:-edc-portal}
+    restart: unless-stopped
+    env_file:
+      - ${EDC_ENV_FILE:-.env}
+    environment:
+      EDC_CHROME_BINARY: /usr/bin/chromium
+      EDC_CHROMEDRIVER: /usr/bin/chromedriver
+      EDC_CHROME_PROFILE: ""
+      EDC_DOWNLOAD_DIR: ""
+    ports:
+      - "${EDC_BIND:-127.0.0.1}:${EDC_PORT:-8001}:8001"
+    volumes:
+      - ${EDC_DATA_DIR:-./data}:/app/data
+      - ${EDC_CONFIG_DIR:-./config}:/app/config
+      - ${EDC_DOWNLOADS_DIR:-./downloads}:/app/downloads
+    shm_size: "1gb"
