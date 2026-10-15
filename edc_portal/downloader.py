@@ -163,6 +163,9 @@ def _download_month_in_session(
     files = [Path(item) for item in glob.glob(str(download_dir / "*")) if Path(item).is_file()]
     newest = max(files, key=lambda item: item.stat().st_ctime)
     target_path = download_dir / output_name
+    if _is_no_data_csv(newest) and target_path.exists() and not _is_no_data_csv(target_path):
+        newest.unlink()
+        return target_path
     if target_path.exists():
         target_path.unlink()
     newest.rename(target_path)
@@ -412,4 +415,14 @@ def _debug_capture(driver: object, debug_dir: Path, name: str) -> None:
 
 def _use_daily_export(month: int, year: int) -> bool:
     now = datetime.now()
-    return month == now.month and year == now.year
+    requested = year * 12 + month
+    current = now.year * 12 + now.month
+    return 0 <= current - requested <= 1
+
+
+def _is_no_data_csv(path: Path) -> bool:
+    try:
+        first_line = path.read_text(encoding="utf-8-sig").splitlines()[0].strip()
+    except Exception:
+        return False
+    return first_line == "Datum;Cas od;Cas do"
