@@ -1,97 +1,123 @@
-# EDC Portal Analyzer
+# EDC Sharing Dashboard
 
-Small self-hosted tool for downloading, parsing and evaluating Czech EDC
-sharing reports. It can log in to the EDC portal with Selenium, export monthly
-CSV reports, convert them to JSON and show the results in a lightweight web UI.
+EDC Sharing Dashboard is a small self-hosted application for inspecting Czech
+EDC electricity-sharing reports. It downloads monthly CSV exports from the EDC
+portal, converts interval data into a file-based JSON representation, and shows
+production, consumption, sharing performance, and allocation suggestions in a
+browser.
 
-The project is intentionally file-based. It does not require a database.
+The project was built to make EDC exports easier to review without repeatedly
+working with raw CSV files. It is a personal prototype rather than an official
+EDC client. There is no database and no dependency on a hosted backend.
 
-## Features
+**Dashboard overview**
 
-- Download EDC CSV exports through a headless Chromium browser
-- Parse EDC reports with `Datum`, `Cas od`, `Cas do` and EAN `IN/OUT` columns
-- Store data separately by project and sharing group
-- Show monthly and daily views in a browser
-- Compare current and recommended sharing ratios
-- Edit readable names for metering points
-- Trigger data download from the web UI with an admin token
-- Export a static read-only version of the web app
-- Run locally or in Docker
+Monthly electricity production, consumption, sharing performance, and
+allocation analysis.
 
-## Project Status
+![EDC Sharing Dashboard overview](docs/images/dashboard-overview.jpg)
 
-This is a personal/prototype project. It is built around the current EDC portal
-flow and may need adjustments if the portal UI changes.
+*Screenshots contain anonymized metering-point identifiers and example data.*
 
-## Repository Layout
+## What It Does
+
+- Downloads EDC reports through headless Chromium and Selenium.
+- Supports accounts with multiple sharing groups.
+- Parses 15-minute EDC CSV data with `Datum`, `Cas od`, `Cas do`, and paired
+  EAN `IN/OUT` columns.
+- Stores raw and processed files separately by project and sharing group.
+- Shows monthly totals, daily summaries, interval charts, and individual
+  production and consumption metering points.
+- Compares current allocation ratios with a calculated recommendation based on
+  the available interval data.
+- Assigns readable local names to EAN metering points.
+- Starts downloads from the web UI through a token-protected endpoint.
+- Exports a static, read-only copy of the dashboard.
+- Runs directly with Python or as a Docker container with Chromium included.
+
+## How It Works
 
 ```text
-edc_portal/        Python downloader, parser, analyzer and HTTP server
-web/               Browser UI
-config/            Runtime config files, for example OM display names
-Dockerfile         Docker image with Python, Chromium and Chromedriver
-docker-compose.yml Local/server Docker runtime
-data/              Downloaded and processed data, ignored by git
-downloads/         Browser downloads, Chrome profile and debug captures, ignored by git
-dist/              Static exports, ignored by git
+EDC portal
+    -> Selenium downloads a monthly CSV report
+    -> the parser validates and converts 15-minute measurements
+    -> the analyzer writes JSON summaries and allocation recommendations
+    -> the Python HTTP server exposes the JSON through a small API
+    -> the browser UI renders monthly, daily, and interval views
 ```
 
-## Configuration
+### EDC Report Download
 
-Create a local `.env` file from the example. Do not commit `.env`.
+Download monthly EDC reports directly from the dashboard using the built-in
+automation workflow.
 
-```bash
-cp .env.example .env
-```
+![Download EDC reports from the dashboard](docs/images/edc-download.jpg)
 
-Then fill in your own values:
-
-```env
-EDC_USERNAME=your-edc-login
-EDC_PASSWORD=your-edc-password
-EDC_PROJECT_CODE=my-project
-EDC_GROUP=My sharing group
-EDC_ADMIN_TOKEN=change-this-token
-
-# Docker / compose runtime
-EDC_BIND=127.0.0.1
-EDC_PORT=8333
-```
-
-Important variables:
-
-- `EDC_USERNAME` and `EDC_PASSWORD` are used for EDC portal login.
-- `EDC_PROJECT_CODE` separates data under `data/<project-code>/`.
-- `EDC_GROUP` is the default sharing group name from the EDC portal.
-- `EDC_ADMIN_TOKEN` protects the web endpoint that triggers downloads.
-- `EDC_BIND=127.0.0.1` is recommended on servers behind a reverse proxy.
-- `EDC_PORT` is the host port exposed by Docker.
-
-Runtime files are stored like this:
+All runtime state is stored in files:
 
 ```text
 data/<project-code>/<group-slug>/raw/
 data/<project-code>/<group-slug>/processed/
-downloads/<project-code>/<group-slug>/
+downloads/<project-code>/<group-slug>/debug/
 config/om_names.json
 ```
 
-## Run With Docker
+The recommendation is an exploratory calculation over the imported energy
+volumes. For two consumers it evaluates allocation percentages in one-percent
+steps; for larger groups it uses a demand-weighted heuristic. It does not model
+prices, tariffs, contracts, or regulatory constraints.
 
-Docker is the recommended way to run the app. The image contains Python,
-Chromium and Chromedriver.
+## Technology
 
-```bash
-docker compose up -d --build
-```
+- Python 3.12 and the standard library for parsing, analysis, JSON storage, the
+  CLI, and the HTTP server
+- Selenium with Chromium and Chromedriver for EDC portal automation
+- Plain HTML, CSS, and JavaScript for the dashboard
+- Docker and Docker Compose for a reproducible runtime
 
-Open:
+## Repository Layout
 
 ```text
-http://127.0.0.1:8333/
+edc_portal/        Downloader, parser, analyzer, CLI, and HTTP server
+web/               Browser UI
+config/            Runtime configuration directory for OM display names
+tests/             Offline unit tests with synthetic data
+Dockerfile         Python, Chromium, and Chromedriver image
+docker-compose.yml Local and server runtime configuration
+.env.example       Environment configuration template
 ```
 
-Useful commands:
+Generated data belongs in `data/`, browser profiles and diagnostics in
+`downloads/`, and static exports in `dist/`. These directories are ignored by
+Git.
+
+## Quick Start With Docker
+
+Docker is the recommended way to run the project because the image includes a
+compatible Chromium and Chromedriver installation.
+
+1. Create your local configuration:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Fill in the EDC credentials, project code, sharing group, and admin token in
+   `.env`.
+
+3. Build and start the application:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+4. Open the configured address. With the values from `.env.example`:
+
+   ```text
+   http://127.0.0.1:8333/
+   ```
+
+Useful lifecycle commands:
 
 ```bash
 docker compose logs -f
@@ -99,44 +125,136 @@ docker compose restart
 docker compose down
 ```
 
-Run a separate instance with another env file:
+## Environment Configuration
 
-```bash
-COMPOSE_PROJECT_NAME=edc-example \
-EDC_ENV_FILE=.env.example-local \
-EDC_CONTAINER_NAME=edc-example \
-EDC_PORT=8334 \
-docker compose up -d --build
+The application reads `.env` directly when running with Python. Docker Compose
+also loads it through `env_file`.
+
+```env
+EDC_USERNAME=your-edc-login
+EDC_PASSWORD=your-edc-password
+EDC_PROJECT_CODE=my-project
+EDC_GROUP=Exact EDC sharing group name
+EDC_ADMIN_TOKEN=replace-with-a-long-random-token
+
+EDC_BIND=127.0.0.1
+EDC_PORT=8333
 ```
 
-If each instance should have its own OM names, mount a separate config
-directory:
+| Variable | Purpose |
+| --- | --- |
+| `EDC_USERNAME` | EDC portal login name. |
+| `EDC_PASSWORD` | EDC portal password. |
+| `EDC_PROJECT_CODE` | Logical identifier used below `data/` and `downloads/`. |
+| `EDC_GROUP` | Exact sharing-group name shown in the EDC portal. |
+| `EDC_ADMIN_TOKEN` | Required by the API endpoint that starts a download. |
+| `EDC_BIND` | Host interface exposed by Docker Compose. Use `127.0.0.1` behind a reverse proxy. |
+| `EDC_PORT` | Host port mapped to the application container. |
+| `EDC_CHROME_BINARY` | Optional local path to Chrome or Chromium outside Docker. |
+| `EDC_CHROMEDRIVER` | Optional local path to Chromedriver outside Docker. |
+| `EDC_CHROME_PROFILE` | Optional persistent browser-profile directory. |
+| `EDC_DOWNLOAD_DIR` | Optional override for the raw download directory. |
+
+Never commit `.env`. Credentials, generated reports, browser profiles, and OM
+names are intentionally excluded by `.gitignore`.
+
+## Local Python Setup
+
+Python 3.12 is the primary development version. Chromium or Chrome and a
+compatible Chromedriver must already be installed when running outside Docker.
 
 ```bash
-mkdir -p config/example
-printf '{}\n' > config/example/om_names.json
+python3 -m venv .venv
+.venv/bin/python -m pip install selenium
+```
 
+Start the local server:
+
+```bash
+.venv/bin/python -m edc_portal.cli serve --host 127.0.0.1 --port 8123
+```
+
+Download one or more months:
+
+```bash
+.venv/bin/python -m edc_portal.cli download --month 6 --year 2026
+.venv/bin/python -m edc_portal.cli download --month 6 7 --year 2026
+```
+
+Parse an existing CSV without contacting EDC:
+
+```bash
+.venv/bin/python -m edc_portal.cli parse data/my-project/my-group/raw/edc-2026-06.csv
+```
+
+Manage local display names for metering points:
+
+```bash
+.venv/bin/python -m edc_portal.cli names
+.venv/bin/python -m edc_portal.cli set-name 859000000000000000 "Main production"
+.venv/bin/python -m edc_portal.cli remove-name 859000000000000000
+```
+
+## Static Export
+
+Create a read-only dashboard that can be served by a regular static web server:
+
+```bash
+.venv/bin/python -m edc_portal.cli export-static --output dist/example
+python3 -m http.server --directory dist/example 8080
+```
+
+Opening the generated `index.html` directly through a `file://` URL does not
+work because browsers block the JSON requests. Serve the directory over HTTP as
+shown above. Static exports cannot download fresh data or save OM names.
+
+## HTTP API
+
+The Python server exposes the web application at `/` and uses these endpoints:
+
+```text
+GET  /api/config
+GET  /api/groups
+GET  /api/months
+GET  /api/data/latest
+GET  /api/data/month
+GET  /api/sync-status
+POST /api/sync
+GET  /api/om-names
+POST /api/om-names
+```
+
+`POST /api/sync` requires the token configured in `EDC_ADMIN_TOKEN`. The server
+is intentionally small and does not provide user accounts or a full
+authorization system.
+
+## Multiple Instances
+
+Separate deployments can share the same image while using different `.env`,
+data, download, and configuration directories:
+
+```bash
 COMPOSE_PROJECT_NAME=edc-example \
 EDC_ENV_FILE=.env.example-local \
 EDC_CONTAINER_NAME=edc-example \
 EDC_PORT=8334 \
+EDC_DATA_DIR=./data/example \
+EDC_DOWNLOADS_DIR=./downloads/example \
 EDC_CONFIG_DIR=./config/example \
 docker compose up -d --build
 ```
 
 ## Server Deployment
 
-On a public server, do not expose the project directory as a web root. Run the
-Docker app on localhost and put Apache, Nginx or Caddy in front of it.
-
-Recommended compose binding:
+Do not expose the repository directory as a public web root. Bind the container
+to localhost and place a reverse proxy in front of it:
 
 ```env
 EDC_BIND=127.0.0.1
 EDC_PORT=8333
 ```
 
-Example Nginx reverse proxy:
+Minimal Nginx example:
 
 ```nginx
 server {
@@ -155,161 +273,32 @@ server {
 }
 ```
 
-Example Apache reverse proxy:
+The repository, `.env`, and mounted runtime directories are sufficient for a
+Docker deployment. Do not copy `.venv/`, `data/`, `downloads/`, or `dist/`
+unless you intentionally want to migrate local state.
 
-```apache
-<VirtualHost *:80>
-    ServerName example.com
+## Tests
 
-    ProxyPreserveHost On
-    ProxyRequests Off
-
-    ProxyPass / http://127.0.0.1:8333/
-    ProxyPassReverse / http://127.0.0.1:8333/
-</VirtualHost>
-```
-
-Enable Apache proxy modules if needed:
+The offline test suite uses only synthetic data and does not log in to EDC:
 
 ```bash
-sudo a2enmod proxy proxy_http headers
-sudo systemctl reload apache2
+python3 -m unittest discover -s tests -v
 ```
 
-## Minimal Files To Copy To A Server
+## Limitations
 
-For a Docker deployment, copy only the source and runtime config:
+- This is a personal prototype built around the current EDC portal UI and CSV
+  format. Portal changes can break the Selenium workflow.
+- Authentication depends on the EDC SSO session behavior. Concurrent or stale
+  sessions may require a retry.
+- Reports are stored as local files; the project does not provide database
+  migrations, multi-user access control, or centralized job scheduling.
+- A sharing group or period may legitimately contain no EAN `IN/OUT` columns.
+  The application reports this as a no-data period.
+- Allocation recommendations are based only on imported kWh values and are not
+  operational, financial, or regulatory advice.
+- The UI is currently Czech, while developer documentation is English.
 
-```text
-Dockerfile
-docker-compose.yml
-README.md
-.env.example
-edc_portal/
-web/
-config/
-.env
-```
+## License
 
-Do not copy generated/local directories unless you intentionally want to migrate
-existing data:
-
-```text
-.venv/
-data/
-downloads/
-dist/
-__pycache__/
-```
-
-Example with `rsync`:
-
-```bash
-rsync -av \
-  --exclude '.venv/' \
-  --exclude 'data/' \
-  --exclude 'downloads/' \
-  --exclude 'dist/' \
-  --exclude '__pycache__/' \
-  --exclude '*.pyc' \
-  --exclude '.DS_Store' \
-  ./ user@server:/var/docker/edc/
-```
-
-## Web UI
-
-The web UI is served at `/`.
-
-Main API endpoints:
-
-```text
-GET  /api/config
-GET  /api/groups
-GET  /api/months
-GET  /api/data/latest
-GET  /api/data/month
-GET  /api/sync-status
-POST /api/sync
-GET  /api/om-names
-POST /api/om-names
-```
-
-`POST /api/sync` requires the admin token from `EDC_ADMIN_TOKEN`.
-
-## CLI Usage
-
-Local Python usage is useful for development and manual parsing.
-
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install selenium
-```
-
-Run the web server locally:
-
-```bash
-.venv/bin/python -m edc_portal.cli serve --host 127.0.0.1 --port 8123
-```
-
-Download one month from EDC:
-
-```bash
-.venv/bin/python -m edc_portal.cli download --month 6 --year 2026
-```
-
-Parse a CSV manually:
-
-```bash
-.venv/bin/python -m edc_portal.cli parse data/my-project/my-group/raw/edc-2026-06.csv
-```
-
-List and edit metering point names:
-
-```bash
-.venv/bin/python -m edc_portal.cli names
-.venv/bin/python -m edc_portal.cli set-name 859000000000000000 "Main production"
-.venv/bin/python -m edc_portal.cli remove-name 859000000000000000
-```
-
-Export a static read-only version:
-
-```bash
-.venv/bin/python -m edc_portal.cli export-static --output dist/example
-```
-
-Serve the static export with any static web server:
-
-```bash
-python3 -m http.server --directory dist/example 8080
-```
-
-Static export is read-only. Downloading new data and saving OM names require the
-Python API server.
-
-## Git Ignore
-
-The repository should not contain credentials, downloaded data or generated
-files. These paths are ignored:
-
-```text
-.env
-.env.*
-!.env.example
-.venv/
-data/
-downloads/
-dist/
-config/om_names.json
-__pycache__/
-*.pyc
-```
-
-## Notes
-
-- The downloader uses Selenium and Chromium, so portal UI changes can break the
-  scraping flow.
-- Some sharing groups or periods may legitimately return no EAN `IN/OUT`
-  columns. In that case the app treats the selected group/period as having no
-  available data.
-- The recommendation currently works with energy volumes in kWh. Prices,
-  tariffs and contractual constraints are outside the current scope.
+This project is available under the [MIT License](LICENSE).
